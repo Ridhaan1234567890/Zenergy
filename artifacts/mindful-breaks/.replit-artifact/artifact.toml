@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/mindful-breaks/"
+title = "Mindful Breaks"
+description = "A calm iOS and Android wellness companion that schedules mindful breaks throughout the day, guides breathing sessions, and turns daily reflections into supportive end-of-day messages."
+version = "1.0.0"
+id = "artifacts/mindful-breaks"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/mindful-breaks/" ]
+localPort = 22005
+
+[services.development]
+run = "pnpm --filter @workspace/mindful-breaks run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/mindful-breaks", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/mindful-breaks", "run", "serve" ]
+
+[services.env]
+PORT = "22005"
+BASE_PATH = "/mindful-breaks/"
