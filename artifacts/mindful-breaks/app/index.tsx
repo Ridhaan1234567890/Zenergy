@@ -727,7 +727,7 @@ export default function HomeScreen() {
           <View style={styles.breathTop}>
             <Text style={[styles.eyebrow, { color: colors.primary }]}>Guided breathing</Text>
             <Text style={[styles.breathProgress, { color: colors.mutedForeground }]}>
-              {breathIndex + 1} of {BREATH_COUNTS.length / 2}
+              {Math.floor(breathIndex / 2) + 1} of {BREATH_COUNTS.length / 2}
             </Text>
           </View>
           <Animated.View
