@@ -12,31 +12,35 @@
  * The useColors() hook will automatically pick it up.
  */
 
+const darkPalette = {
+  text: '#F4F0FF',
+  tint: '#D99AE9',
+  background: '#071426',
+  foreground: '#F4F0FF',
+  card: '#10243A',
+  cardForeground: '#F4F0FF',
+  primary: '#D99AE9',
+  primaryForeground: '#20152D',
+  secondary: '#172C47',
+  secondaryForeground: '#DCCFF5',
+  muted: '#122640',
+  mutedForeground: '#A9B1C7',
+  accent: '#655AA6',
+  accentForeground: '#F8F4FF',
+  destructive: '#D96F86',
+  destructiveForeground: '#FFF7FA',
+  border: '#2C405D',
+  input: '#3A5271',
+  navy: '#061B35',
+  sage: '#B9C4E6',
+  cream: '#F8F3FF',
+  yellow: '#F2CD8A',
+};
+
 const colors = {
-  light: {
-    text: '#17212B',
-    tint: '#EF816D',
-    background: '#F5F1E9',
-    foreground: '#17212B',
-    card: '#FFFCF6',
-    cardForeground: '#17212B',
-    primary: '#EF816D',
-    primaryForeground: '#FFFDF9',
-    secondary: '#E5EDE8',
-    secondaryForeground: '#27544C',
-    muted: '#EAE6DC',
-    mutedForeground: '#69756F',
-    accent: '#F6D6B8',
-    accentForeground: '#734B3D',
-    destructive: '#BE5A5A',
-    destructiveForeground: '#FFFDF9',
-    border: '#D9D7CF',
-    input: '#D0D5CF',
-    navy: '#17212B',
-    sage: '#B6CFC4',
-    cream: '#FFF9EF',
-    yellow: '#F2C46D',
-  },
+  // Zenergy uses the same intentionally dark palette regardless of device appearance.
+  light: darkPalette,
+  dark: darkPalette,
   radius: 18,
 };
 

@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "Mindful Breaks",
+    "name": "Zenergy",
     "slug": "mindful-breaks",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "mindful-breaks",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": false
     },

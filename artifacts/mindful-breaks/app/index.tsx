@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  Image,
   Modal,
   Platform,
   Pressable,
@@ -243,9 +244,13 @@ function Page({
 function LogoMark() {
   const colors = useColors();
   return (
-    <View style={[styles.logoMark, { backgroundColor: colors.primary }]}>
-      <View style={[styles.logoCircle, { backgroundColor: colors.cream }]} />
-      <View style={[styles.logoLine, { backgroundColor: colors.cream }]} />
+    <View style={[styles.logoMark, { backgroundColor: colors.navy, borderColor: colors.border }]}>
+      <Image
+        source={require('../assets/images/zenergy-logo.png')}
+        resizeMode="contain"
+        style={styles.logoImage}
+        accessibilityLabel="Zenergy lotus logo"
+      />
     </View>
   );
 }
@@ -256,7 +261,7 @@ function SetupHeader({ step, eyebrow }: { step: number; eyebrow: string }) {
     <>
       <View style={styles.brandRow}>
         <LogoMark />
-        <Text style={[styles.brandName, { color: colors.foreground }]}>mindful breaks</Text>
+        <Text style={[styles.brandName, { color: colors.foreground }]}>zenergy</Text>
       </View>
       <ProgressDots step={step} />
       <Text style={[styles.eyebrow, { color: colors.primary }]}>{eyebrow}</Text>
@@ -324,7 +329,7 @@ function SettingsModal({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={[styles.modalBackdrop, { backgroundColor: 'rgba(23, 33, 43, 0.4)' }]}>
         <View style={[styles.sheet, { backgroundColor: colors.card }]}>
-          <View style={styles.sheetHandle} />
+          <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
           <View style={styles.sheetHeader}>
             <View>
               <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Schedule</Text>
@@ -596,7 +601,7 @@ export default function HomeScreen() {
         <View style={styles.setupHero}>
           <Text style={[styles.heroTitle, { color: colors.foreground }]}>Make room for how you feel.</Text>
           <Text style={[styles.heroBody, { color: colors.mutedForeground }]}>
-            Mindful Breaks gently interrupts your day with a short breathing practice and a moment to check in.
+            Zenergy gently interrupts your day with a short breathing practice and a moment to check in.
           </Text>
         </View>
         <View style={styles.formBlock}>
@@ -887,7 +892,7 @@ export default function HomeScreen() {
       ) : (
         <>
           <View style={[styles.timerCard, { backgroundColor: colors.navy }]}>
-            <View style={styles.timerIcon}>
+            <View style={[styles.timerIcon, { backgroundColor: colors.secondary }]}>
               <Feather name="wind" size={20} color={colors.yellow} />
             </View>
             <Text style={[styles.timerLabel, { color: colors.sage }]}>NEXT BREAK IN</Text>
@@ -934,9 +939,8 @@ const baseStyles = StyleSheet.create({
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 18 },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 34 },
   brandName: { fontFamily: 'Inter_600SemiBold', fontSize: 17, letterSpacing: -0.3 },
-  logoMark: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-8deg' }] },
-  logoCircle: { width: 13, height: 13, borderRadius: 8, position: 'absolute', top: 7 },
-  logoLine: { width: 16, height: 3, borderRadius: 3, position: 'absolute', bottom: 7, transform: [{ rotate: '-12deg' }] },
+  logoMark: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  logoImage: { width: 58, height: 44 },
   dots: { flexDirection: 'row', gap: 6, marginBottom: 30 },
   dot: { width: 26, height: 4, borderRadius: 4 },
   eyebrow: { fontFamily: 'Inter_700Bold', fontSize: 12, letterSpacing: 1.4, textTransform: 'uppercase' },
@@ -984,7 +988,7 @@ const baseStyles = StyleSheet.create({
   yesterdayCard: { borderRadius: 18, padding: 17, borderWidth: 1, marginBottom: 25 },
   yesterdayScore: { fontFamily: 'Inter_700Bold', fontSize: 24, marginBottom: 4 },
   timerCard: { borderRadius: 24, padding: 22, marginBottom: 16 },
-  timerIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(242, 196, 109, 0.16)', alignItems: 'center', justifyContent: 'center', marginBottom: 25 },
+  timerIcon: { width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 25 },
   timerLabel: { fontFamily: 'Inter_700Bold', fontSize: 11, letterSpacing: 1.4 },
   timerValue: { fontFamily: 'Inter_700Bold', fontSize: 54, letterSpacing: -2.5, marginTop: 7 },
   timerNote: { fontFamily: 'Inter_400Regular', fontSize: 13, marginTop: 6 },
@@ -998,7 +1002,7 @@ const baseStyles = StyleSheet.create({
   goodNightTitle: { fontFamily: 'Inter_700Bold', fontSize: 27, letterSpacing: -0.8, marginTop: 26 },
   modalBackdrop: { flex: 1, justifyContent: 'flex-end' },
   sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 22, paddingTop: 11, paddingBottom: 30 },
-  sheetHandle: { width: 38, height: 4, borderRadius: 4, backgroundColor: '#D0D5CF', alignSelf: 'center', marginBottom: 21 },
+  sheetHandle: { width: 38, height: 4, borderRadius: 4, alignSelf: 'center', marginBottom: 21 },
   sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 },
   sheetTitle: { fontFamily: 'Inter_700Bold', fontSize: 24, letterSpacing: -0.6 },
   sheetSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 13, marginTop: 4 },
