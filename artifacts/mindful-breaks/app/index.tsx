@@ -30,6 +30,7 @@ type Phase =
   | 'breathing'
   | 'reflection'
   | 'dayEnd'
+  | 'sleeping'
   | 'goodNight';
 
 type Reflection = {
@@ -53,6 +54,8 @@ type SavedDay = {
   phase: Phase;
   nextBreakAt: number | null;
   promptAt: number | null;
+  bedtimeAt?: number | null;
+  wakeAt?: number | null;
 };
 
 const SETTINGS_KEY = 'mindful-breaks:settings';
@@ -93,6 +96,18 @@ function timeToday(value: string) {
   const date = new Date();
   date.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
   return date.getTime();
+}
+
+function nextClockTime(value: string, after = Date.now()) {
+  const today = timeToday(value);
+  return today > after ? today : today + 24 * 60 * 60 * 1000;
+}
+
+function wakeTimeForGoodNight(settings: Settings, now: number) {
+  const wakeToday = timeToday(settings.wakeTime);
+  const bedtimeToday = timeToday(settings.bedtime);
+  if (now >= wakeToday && now < bedtimeToday) return now;
+  return nextClockTime(settings.wakeTime, now);
 }
 
 function displayTime(value: string) {
@@ -387,6 +402,8 @@ export default function HomeScreen() {
   const [history, setHistory] = useState<Reflection[]>([]);
   const [nextBreakAt, setNextBreakAt] = useState<number | null>(null);
   const [promptAt, setPromptAt] = useState<number | null>(null);
+  const [bedtimeAt, setBedtimeAt] = useState<number | null>(null);
+  const [wakeAt, setWakeAt] = useState<number | null>(null);
   const [now, setNow] = useState(Date.now());
   const [selectedMood, setSelectedMood] = useState<number | null>(null);
   const [todayResponse, setTodayResponse] = useState('');
@@ -400,7 +417,7 @@ export default function HomeScreen() {
   const yesterday = history.length ? history[history.length - 1] : undefined;
   const currentAverage = averageFor(dailyRatings);
   const timeRemaining = nextBreakAt ? Math.max(0, nextBreakAt - now) : 0;
-  const bedtimePassed = now >= timeToday(settings.bedtime);
+  const bedtimePassed = bedtimeAt !== null && now >= bedtimeAt;
 
   useEffect(() => {
     let mounted = true;
@@ -424,17 +441,44 @@ export default function HomeScreen() {
         setHistory(parsedHistory);
         if (!parsedSettings) {
           setPhase('name');
-        } else if (!parsedDay || parsedDay.date !== todayKey()) {
+        } else if (!parsedDay) {
           setPhase('morning');
           setDailyRatings([]);
-        } else if (parsedDay.phase === 'goodNight') {
-          setPhase('goodNight');
+        } else if (parsedDay.phase === 'sleeping' || parsedDay.phase === 'goodNight') {
+          const savedWakeAt =
+            parsedDay.wakeAt ?? wakeTimeForGoodNight(parsedSettings, Date.now());
           setDailyRatings(parsedDay.ratings);
+          if (savedWakeAt <= Date.now()) {
+            setWakeAt(null);
+            setPhase('morning');
+          } else {
+            setWakeAt(savedWakeAt);
+            setPhase('sleeping');
+          }
+        } else if (
+          parsedDay.phase === 'dayEnd' ||
+          (parsedDay.bedtimeAt !== undefined &&
+            parsedDay.bedtimeAt !== null &&
+            parsedDay.bedtimeAt <= Date.now()) ||
+          (!parsedDay.bedtimeAt &&
+            parsedDay.date === todayKey() &&
+            Date.now() >= timeToday(parsedSettings.bedtime))
+        ) {
+          setPhase('dayEnd');
+          setDailyRatings(parsedDay.ratings);
+          setBedtimeAt(parsedDay.bedtimeAt ?? timeToday(parsedSettings.bedtime));
+        } else if (
+          parsedDay.date !== todayKey() && !parsedDay.bedtimeAt
+        ) {
+          setPhase('morning');
+          setDailyRatings([]);
         } else {
           setPhase(parsedDay.phase === 'breathing' || parsedDay.phase === 'reflection' ? 'active' : parsedDay.phase);
           setDailyRatings(parsedDay.ratings);
           setNextBreakAt(parsedDay.nextBreakAt);
           setPromptAt(parsedDay.promptAt);
+          setBedtimeAt(parsedDay.bedtimeAt ?? nextClockTime(parsedSettings.bedtime));
+          setWakeAt(null);
         }
       } catch {
         setPhase('name');
@@ -461,9 +505,21 @@ export default function HomeScreen() {
       phase,
       nextBreakAt,
       promptAt,
+      bedtimeAt,
+      wakeAt,
     };
     AsyncStorage.setItem(DAY_KEY, JSON.stringify(savedDay));
-  }, [dailyRatings, hydrated, nextBreakAt, phase, promptAt]);
+  }, [bedtimeAt, dailyRatings, hydrated, nextBreakAt, phase, promptAt, wakeAt]);
+
+  useEffect(() => {
+    if (phase !== 'sleeping' || !wakeAt || now < wakeAt) return;
+    setWakeAt(null);
+    setBedtimeAt(null);
+    setNextBreakAt(null);
+    setPromptAt(null);
+    setDailyRatings([]);
+    setPhase('morning');
+  }, [now, phase, wakeAt]);
 
   useEffect(() => {
     if (phase === 'active' && nextBreakAt && now >= nextBreakAt) {
@@ -517,13 +573,25 @@ export default function HomeScreen() {
     setIntervalMinutes(next.intervalMinutes);
     setSettingsOpen(false);
     AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+    if (phase === 'sleeping' || phase === 'goodNight') {
+      setBedtimeAt(null);
+      setWakeAt(nextClockTime(next.wakeTime));
+      setNextBreakAt(null);
+      setPromptAt(null);
+      setPhase('sleeping');
+      return;
+    }
     setPhase('active');
+    setBedtimeAt(nextClockTime(next.bedtime));
+    setWakeAt(null);
     setNextBreakAt(Date.now() + next.intervalMinutes * 60000);
     setPromptAt(null);
   }
 
   function scheduleNextBreak() {
     setPromptAt(null);
+    setBedtimeAt(nextClockTime(settings.bedtime));
+    setWakeAt(null);
     setNextBreakAt(Date.now() + settings.intervalMinutes * 60000);
     setPhase('active');
   }
@@ -537,6 +605,8 @@ export default function HomeScreen() {
     };
     setSettings(next);
     AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+    setBedtimeAt(nextClockTime(next.bedtime));
+    setWakeAt(null);
     setNextBreakAt(Date.now() + intervalMinutes * 60000);
     setPhase('active');
   }
@@ -544,6 +614,8 @@ export default function HomeScreen() {
   function beginMorning() {
     setDailyRatings([]);
     setSelectedMood(null);
+    setBedtimeAt(nextClockTime(settings.bedtime));
+    setWakeAt(null);
     setPhase('active');
     setNextBreakAt(Date.now() + settings.intervalMinutes * 60000);
   }
@@ -560,7 +632,7 @@ export default function HomeScreen() {
     const nextRatings = [...dailyRatings, selectedMood];
     setDailyRatings(nextRatings);
     setSelectedMood(null);
-    if (Date.now() >= timeToday(settings.bedtime)) {
+    if (bedtimeAt !== null && Date.now() >= bedtimeAt) {
       setPhase('dayEnd');
       setNextBreakAt(null);
     } else {
@@ -580,7 +652,11 @@ export default function HomeScreen() {
     const nextHistory = [...history, reflection].slice(-14);
     setHistory(nextHistory);
     AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(nextHistory));
-    setPhase('goodNight');
+    setBedtimeAt(null);
+    setNextBreakAt(null);
+    setPromptAt(null);
+    setWakeAt(nextClockTime(settings.wakeTime));
+    setPhase('sleeping');
     setTodayResponse('');
     setYesterdayResponse('');
   }
@@ -803,6 +879,56 @@ export default function HomeScreen() {
     );
   }
 
+  if (phase === 'sleeping' || phase === 'goodNight') {
+    return (
+      <Page>
+        <View style={styles.topRow}>
+          <View>
+            <Text style={[styles.eyebrow, { color: colors.primary }]}>Day complete</Text>
+            <Text style={[styles.screenTitle, { color: colors.foreground }]}>
+              Good night, {settings.name}.
+            </Text>
+          </View>
+          <Pressable onPress={() => setSettingsOpen(true)} style={[styles.iconButton, { backgroundColor: colors.card }]}>
+            <Feather name="sliders" size={19} color={colors.foreground} />
+          </Pressable>
+        </View>
+        <View style={[styles.goodNightCard, { backgroundColor: colors.accent }]}>
+          <Feather name="moon" size={28} color={colors.accentForeground} />
+          <Text style={[styles.goodNightTitle, { color: colors.accentForeground }]}>
+            You did enough for today.
+          </Text>
+          <Text style={[styles.heroBody, { color: colors.accentForeground }]}>
+            Rest well. Your next day begins at {displayTime(settings.wakeTime)}.
+          </Text>
+        </View>
+        <View style={[styles.streakCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.streakIcon, { backgroundColor: colors.secondary }]}>
+            <Feather name="clock" size={18} color={colors.secondaryForeground} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.streakTitle, { color: colors.foreground }]}>Time to wake</Text>
+            <Text style={[styles.helper, { color: colors.mutedForeground }]}>
+              {wakeAt ? formatDuration(wakeAt - now) : `At ${displayTime(settings.wakeTime)}`}
+            </Text>
+          </View>
+        </View>
+        <Button
+          label="Start my morning now"
+          icon="sunrise"
+          variant="secondary"
+          onPress={() => {
+            setWakeAt(null);
+            setBedtimeAt(null);
+            setNextBreakAt(null);
+            setPhase('morning');
+          }}
+        />
+        <SettingsModal visible={settingsOpen} settings={settings} onClose={() => setSettingsOpen(false)} onSave={saveSettings} />
+      </Page>
+    );
+  }
+
   if (phase === 'dayEnd') {
     const yesterdayWasGood = (yesterday?.average ?? 3) >= 3;
     const todayWasGood = currentAverage >= 3;
@@ -865,69 +991,48 @@ export default function HomeScreen() {
     <Page>
       <View style={styles.topRow}>
         <View>
-          <Text style={[styles.eyebrow, { color: colors.primary }]}>
-            {phase === 'goodNight' ? 'Day complete' : 'Your next pause'}
-          </Text>
-          <Text style={[styles.screenTitle, { color: colors.foreground }]}>
-            {phase === 'goodNight' ? `Good night, ${settings.name}.` : `Hello, ${settings.name}.`}
-          </Text>
+          <Text style={[styles.eyebrow, { color: colors.primary }]}>Your next pause</Text>
+          <Text style={[styles.screenTitle, { color: colors.foreground }]}>Hello, {settings.name}.</Text>
         </View>
         <Pressable onPress={() => setSettingsOpen(true)} style={[styles.iconButton, { backgroundColor: colors.card }]}>
           <Feather name="sliders" size={19} color={colors.foreground} />
         </Pressable>
       </View>
-      {phase === 'goodNight' ? (
-        <>
-          <View style={[styles.goodNightCard, { backgroundColor: colors.accent }]}>
-            <Feather name="moon" size={28} color={colors.accentForeground} />
-            <Text style={[styles.goodNightTitle, { color: colors.accentForeground }]}>
-              You did enough for today.
-            </Text>
-            <Text style={[styles.heroBody, { color: colors.accentForeground }]}>
-              Rest well. We’ll ask about your rhythm again in the morning.
-            </Text>
-          </View>
-          <Button label="Begin tomorrow" icon="sunrise" onPress={() => setPhase('morning')} />
-        </>
-      ) : (
-        <>
-          <View style={[styles.timerCard, { backgroundColor: colors.navy }]}>
-            <View style={[styles.timerIcon, { backgroundColor: colors.secondary }]}>
-              <Feather name="wind" size={20} color={colors.yellow} />
-            </View>
-            <Text style={[styles.timerLabel, { color: colors.sage }]}>NEXT BREAK IN</Text>
-            <Text style={[styles.timerValue, { color: colors.cream }]}>{formatDuration(timeRemaining)}</Text>
-            <Text style={[styles.timerNote, { color: colors.sage }]}>
-              Breaks every {formatInterval(settings.intervalMinutes)} · bedtime {displayTime(settings.bedtime)}
-            </Text>
-          </View>
-          <View style={[styles.streakCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.streakIcon, { backgroundColor: colors.secondary }]}>
-              <Feather name="activity" size={18} color={colors.secondaryForeground} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.streakTitle, { color: colors.foreground }]}>
-                {dailyRatings.length ? `${dailyRatings.length} check-in${dailyRatings.length === 1 ? '' : 's'} today` : 'Your first pause is ahead'}
-              </Text>
-              <Text style={[styles.helper, { color: colors.mutedForeground }]}>
-                Small moments of noticing add up.
-              </Text>
-            </View>
-          </View>
-          <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Your rhythm</Text>
-          <View style={styles.rhythmRow}>
-            <View style={[styles.rhythmPill, { backgroundColor: colors.secondary }]}>
-              <Feather name="sunrise" size={16} color={colors.secondaryForeground} />
-              <Text style={[styles.rhythmPillText, { color: colors.secondaryForeground }]}>{displayTime(settings.wakeTime)}</Text>
-            </View>
-            <Feather name="arrow-right" size={15} color={colors.mutedForeground} />
-            <View style={[styles.rhythmPill, { backgroundColor: colors.accent }]}>
-              <Feather name="moon" size={16} color={colors.accentForeground} />
-              <Text style={[styles.rhythmPillText, { color: colors.accentForeground }]}>{displayTime(settings.bedtime)}</Text>
-            </View>
-          </View>
-        </>
-      )}
+      <View style={[styles.timerCard, { backgroundColor: colors.navy }]}>
+        <View style={[styles.timerIcon, { backgroundColor: colors.secondary }]}>
+          <Feather name="wind" size={20} color={colors.yellow} />
+        </View>
+        <Text style={[styles.timerLabel, { color: colors.sage }]}>NEXT BREAK IN</Text>
+        <Text style={[styles.timerValue, { color: colors.cream }]}>{formatDuration(timeRemaining)}</Text>
+        <Text style={[styles.timerNote, { color: colors.sage }]}>
+          Breaks every {formatInterval(settings.intervalMinutes)} · bedtime {displayTime(settings.bedtime)}
+        </Text>
+      </View>
+      <View style={[styles.streakCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.streakIcon, { backgroundColor: colors.secondary }]}>
+          <Feather name="activity" size={18} color={colors.secondaryForeground} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.streakTitle, { color: colors.foreground }]}>
+            {dailyRatings.length ? `${dailyRatings.length} check-in${dailyRatings.length === 1 ? '' : 's'} today` : 'Your first pause is ahead'}
+          </Text>
+          <Text style={[styles.helper, { color: colors.mutedForeground }]}>
+            Small moments of noticing add up.
+          </Text>
+        </View>
+      </View>
+      <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Your rhythm</Text>
+      <View style={styles.rhythmRow}>
+        <View style={[styles.rhythmPill, { backgroundColor: colors.secondary }]}>
+          <Feather name="sunrise" size={16} color={colors.secondaryForeground} />
+          <Text style={[styles.rhythmPillText, { color: colors.secondaryForeground }]}>{displayTime(settings.wakeTime)}</Text>
+        </View>
+        <Feather name="arrow-right" size={15} color={colors.mutedForeground} />
+        <View style={[styles.rhythmPill, { backgroundColor: colors.accent }]}>
+          <Feather name="moon" size={16} color={colors.accentForeground} />
+          <Text style={[styles.rhythmPillText, { color: colors.accentForeground }]}>{displayTime(settings.bedtime)}</Text>
+        </View>
+      </View>
       <SettingsModal visible={settingsOpen} settings={settings} onClose={() => setSettingsOpen(false)} onSave={saveSettings} />
     </Page>
   );
